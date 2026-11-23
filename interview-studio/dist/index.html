@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="在同一個工作台記錄 App UI／UX 面試評量、瀏覽 QA 題庫與整理追問。">
+  <meta name="theme-color" content="#f7f7fb">
+  <title>面試工作台 · App UI／UX</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="seed.js"></script>
+  <script defer src="interview-pdf.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-inner">
+      <a class="brand" href="./" aria-label="面試工作台首頁"><span class="brand-icon" data-icon="layers"></span><span>面試工作台</span></a>
+      <nav aria-label="主要操作">
+        <button class="nav-button current" id="workspace-link" type="button" aria-current="page"><span data-icon="grid"></span>工作台</button>
+        <button class="nav-button" id="records-link" type="button"><span data-icon="archive"></span>面試紀錄</button>
+      </nav>
+      <div class="top-actions">
+        <button class="button secondary" id="new-interview" type="button"><span data-icon="plus"></span>新增面試</button>
+        <button class="button primary" id="save-interview" type="button"><span data-icon="download"></span>下載 PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="page">
+    <div class="workspace">
+      <section class="column score-column" aria-labelledby="score-heading">
+        <div class="column-heading">
+          <span class="section-icon lavender" data-icon="clipboard"></span>
+          <div><h1 id="score-heading" tabindex="-1">面試評量表</h1><div class="column-meta" id="interview-status"></div></div>
+          <button class="button compact" data-edit="template" type="button"><span data-icon="edit"></span>編輯評量表</button>
+        </div>
+        <div id="score-form"></div>
+      </section>
+
+      <section class="column question-column" aria-labelledby="qa-heading">
+        <div class="column-heading">
+          <span class="section-icon periwinkle" data-icon="messages"></span>
+          <div><h2 id="qa-heading">QA 問題集</h2><div class="column-meta" id="question-total"></div></div>
+          <button class="button compact" data-edit="questions" type="button"><span data-icon="edit"></span>編輯題庫</button>
+        </div>
+        <div class="panel bank">
+          <div class="tab-strip" role="tablist" aria-label="題庫分類" id="tabs"></div>
+          <div class="bank-list" id="questions"></div>
+        </div>
+        <div class="panel notes">
+          <div class="notes-heading"><span class="section-icon amber" data-icon="note"></span><label class="panel-title" for="notes">待追問筆記</label></div>
+          <textarea id="notes" rows="3" placeholder="先記下想補問的問題，等適合的時機再一起問。"></textarea>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="dialog" aria-labelledby="dialog-title">
+    <form id="dialog-form">
+      <div class="dialog-heading">
+        <h2 id="dialog-title"></h2>
+        <button type="button" class="icon-button" id="close-dialog" aria-label="關閉"><span data-icon="close"></span></button>
+      </div>
+      <div id="dialog-body" class="dialog-body"></div>
+      <div id="dialog-actions" class="dialog-actions"></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
