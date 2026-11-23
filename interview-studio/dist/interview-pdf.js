@@ -6,7 +6,7 @@ const pdfScale = 2.5;
 const pdfMargin = 48;
 const pdfFonts = '"PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
 
-function makeInterviewPdf(record, summaryLabels, scoreLabel) {
+function makeInterviewPdf(record, summaryLabels, scoreLabel, itemCode) {
   const canvas = document.createElement('canvas');
   canvas.lang = 'zh-Hant';
   canvas.width = Math.ceil(pdfWidth * pdfScale);
@@ -97,7 +97,7 @@ function makeInterviewPdf(record, summaryLabels, scoreLabel) {
   if (!record.items.length) paragraph('這場面試沒有評量項目。');
   for (const item of record.items) {
     reserve(74);
-    paragraph(`${item.id}　${item.title}`, { size: 13, lineHeight: 19, weight: 700, gap: 4 });
+    paragraph(`${itemCode(item)}　${item.title}`, { size: 13, lineHeight: 19, weight: 700, gap: 4 });
     paragraph(`評分　${scoreLabel(item.score)}`, { color: '#48318e', weight: 700 });
     paragraph(`判斷依據　${item.criteria}`, { color: '#4e485d' });
     detail('具體例子與結果', item.example);

@@ -1,6 +1,8 @@
 'use strict';
 
 const categories = { A: '專案經驗', B: '合作方式', C: '閒聊交流' };
+const assessmentCodes = new Map(seed.items.map((item, index) => [item.id, `E${String(index + 1).padStart(2, '0')}`]));
+const assessmentIds = new Map(Array.from(assessmentCodes, ([id, code]) => [code, id]));
 const basics = [
   ['name', '姓名', '輸入面試者姓名'],
   ['date', '日期', ''],
@@ -153,6 +155,12 @@ function scoreName(value) {
   return seed.scale.find(option => option.value === value)?.label || '尚未評分';
 }
 
+function assessmentCode(item) {
+  const current = seed.items.find(entry => entry.id === item.id);
+  return current?.title === item.title && current.criteria === item.criteria
+    ? assessmentCodes.get(item.id) : item.id;
+}
+
 function renderScoreForm() {
   const items = interview.items.map(item => {
     const choices = seed.scale.map(({ value, label, description }) => `
@@ -161,7 +169,7 @@ function renderScoreForm() {
         <span aria-hidden="true">${value === 'pending' ? label : value}</span>
       </label>`).join('');
     return `<article class="assessment-item">
-      <div class="item-heading"><span class="code">${item.id}</span><h3 id="item-${item.id}">${escape(item.title)}</h3></div>
+      <div class="item-heading"><span class="code">${assessmentCode(item)}</span><h3 id="item-${item.id}">${escape(item.title)}</h3></div>
       <p class="criteria">${escape(item.criteria)}</p>
       <fieldset class="score-options">
         <legend class="sr-only">${escape(item.title)}評分</legend>
@@ -216,7 +224,7 @@ function renderQuestions() {
   questions.innerHTML = visible.map(question => {
     const matches = question.assessments.flatMap(id => {
       const match = interview.items.find(item => item.id === id) || seed.items.find(item => item.id === id);
-      return match ? [`${id} ${match.title}`] : [];
+      return match ? [`${assessmentCode(match)} ${match.title}`] : [];
     });
     const parts = [
       [question.category === 'C' ? '延伸話題' : '追問', question.followup],
@@ -339,7 +347,7 @@ saveButton.addEventListener('click', () => {
   const id = interview.id || crypto.randomUUID();
   const snapshot = clone({ ...interview, id, updatedAt: new Date().toISOString() });
   try {
-    const pdf = makeInterviewPdf(snapshot, summaries, scoreName);
+    const pdf = makeInterviewPdf(snapshot, summaries, scoreName, assessmentCode);
     downloadInterviewPdf(pdf, snapshot.basic);
   } catch {
     notify('PDF 生成失敗，請再試一次。');
@@ -449,7 +457,7 @@ function showQuestionEditor() {
           ${field('主問題', 'data-key="prompt" required', entry.prompt, { rows: 2 })}
           ${field('追問或延伸話題', 'data-key="followup"', entry.followup, { rows: 2 })}
           ${field('觀察重點', 'data-key="observation"', entry.observation, { rows: 2 })}
-          ${field('對應評量項目', 'data-key="assessments" list="assessment-codes" pattern="[Ee][0-9]+([、,，\\s]+[Ee][0-9]+)*"', entry.assessments.join('、'), { placeholder: '例如：E04、E05' })}
+          ${field('對應評量項目', 'data-key="assessments" list="assessment-codes" pattern="[Ee][0-9]+([、,，\\s]+[Ee][0-9]+)*"', entry.assessments.map(id => assessmentCodes.get(id) || id).join('、'), { placeholder: '例如：E04、E05' })}
           <div class="editor-tools">
             ${editorTool('上移', 'up', 'up', !draft.slice(0, index).some(other => other.category === entry.category))}
             ${editorTool('下移', 'down', 'down', !draft.slice(index + 1).some(other => other.category === entry.category))}
@@ -463,7 +471,7 @@ function showQuestionEditor() {
 
   showDialog('編輯題庫', `
     <p class="editor-intro">可以用評量編號連結題目與評量，例如 E04、E05。</p>
-    <datalist id="assessment-codes">${seed.items.map(item => `<option value="${item.id}">${escape(item.title)}</option>`).join('')}</datalist>
+    <datalist id="assessment-codes">${seed.items.map(item => `<option value="${assessmentCodes.get(item.id)}">${escape(item.title)}</option>`).join('')}</datalist>
     <div id="editor-list"></div>
     ${button('新增題目', 'compact', 'id="add-entry"', 'plus')}
   `, `${button('取消', '', 'id="cancel-editor"')}<button type="submit" class="button primary">儲存題庫</button>`, () => {
@@ -492,7 +500,9 @@ function showQuestionEditor() {
     const card = event.target.closest('[data-entry]');
     const entry = draft.find(item => item.id === card.dataset.entry);
     const value = event.target.value;
-    entry[key] = key === 'assessments' ? Array.from(new Set(value.toUpperCase().split(/[、,，\s]+/).filter(Boolean))) : value;
+    entry[key] = key === 'assessments'
+      ? Array.from(new Set(value.toUpperCase().split(/[、,，\s]+/).filter(Boolean).map(code => assessmentIds.get(code) || code)))
+      : value;
     if (key === 'title') card.querySelector('[data-entry-title]').textContent = value.trim() || '新題目';
     if (key === 'category') {
       opened.add(entry.id);
