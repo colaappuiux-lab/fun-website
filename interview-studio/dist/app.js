@@ -32,7 +32,6 @@ const icons = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   up: '<path d="m6 15 6-6 6 6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
-  grip: '<path d="M5 7h14M5 12h14M5 17h14"/>',
   trash: '<path d="M4 6h16m-10 0V3h4v3m4 0-1 15H7L6 6m4 4v7m4-7v7"/>',
 };
 
@@ -56,8 +55,8 @@ const storageKey = 'app-uiux-interview-studio-v1';
 function readData() {
   const saved = localStorage.getItem(storageKey);
   return saved ? JSON.parse(saved) : {
-    template: clone(seed.items), questions: clone(seed.questions), records: [],
-    lastId: { E: 8, A: 8, B: 5, C: 6 },
+    questions: clone(seed.questions), records: [],
+    lastId: { A: 8, B: 5, C: 6 },
   };
 }
 
@@ -66,7 +65,7 @@ let data;
 try {
   data = readData();
 } catch {
-  data = { template: clone(seed.items), questions: clone(seed.questions), records: [], lastId: { E: 8, A: 8, B: 5, C: 6 } };
+  data = { questions: clone(seed.questions), records: [], lastId: { A: 8, B: 5, C: 6 } };
   storageMessage = '無法讀取本機資料。請確認瀏覽器允許本機儲存。';
 }
 
@@ -101,7 +100,7 @@ function blankInterview() {
     id: null,
     basic: Object.fromEntries(basics.map(([key]) => [key, ''])),
     summary: Object.fromEntries(summaries.map(([key]) => [key, ''])),
-    items: data.template.map(({ id, title, criteria }) => ({ id, title, criteria, score: '', example: '' })),
+    items: seed.items.map(({ id, title, criteria }) => ({ id, title, criteria, score: '', example: '' })),
     notes: '',
   };
 }
@@ -215,9 +214,9 @@ function renderQuestions() {
   questions.setAttribute('aria-labelledby', `tab-${activeCategory}`);
   questions.tabIndex = 0;
   questions.innerHTML = visible.map(question => {
-    const matches = question.assessments.map(id => {
-      const match = interview.items.find(item => item.id === id) || data.template.find(item => item.id === id);
-      return match ? `${id} ${match.title}` : id;
+    const matches = question.assessments.flatMap(id => {
+      const match = interview.items.find(item => item.id === id) || seed.items.find(item => item.id === id);
+      return match ? [`${id} ${match.title}`] : [];
     });
     const parts = [
       [question.category === 'C' ? '延伸話題' : '追問', question.followup],
@@ -430,98 +429,11 @@ function editorTool(label, action, glyph, disabled = false) {
   return `<button type="button" class="icon-button ${action === 'delete' ? 'danger' : ''}" data-editor-action="${action}" aria-label="${label}" title="${label}" ${disabled ? 'disabled' : ''}>${icon(glyph)}</button>`;
 }
 
-function enableTemplateDragging(list, moveItem) {
-  const scrollArea = list.closest('.dialog-body');
-  let drag;
-  let frame = 0;
-
-  function updateTarget() {
-    const bounds = scrollArea.getBoundingClientRect();
-    const inside = drag.x >= bounds.left && drag.x <= bounds.right
-      && drag.y >= bounds.top && drag.y <= bounds.bottom;
-    drag.marker?.removeAttribute('data-drop');
-    const rows = Array.from(list.querySelectorAll('.template-row'));
-    const before = rows.find(row => {
-      const rect = row.getBoundingClientRect();
-      return drag.y < rect.top + rect.height / 2;
-    });
-    drag.before = before?.dataset.sortId ?? null;
-    drag.marker = inside ? before || rows.at(-1) : null;
-    if (drag.marker) drag.marker.dataset.drop = before ? 'before' : 'after';
-  }
-
-  function scrollWhileDragging() {
-    const bounds = scrollArea.getBoundingClientRect();
-    const edge = 42;
-    const nearTop = drag.y - bounds.top;
-    const nearBottom = bounds.bottom - drag.y;
-    if (drag.marker && nearTop < edge) scrollArea.scrollTop -= (edge - nearTop) / 3;
-    if (drag.marker && nearBottom < edge) scrollArea.scrollTop += (edge - nearBottom) / 3;
-    updateTarget();
-    frame = requestAnimationFrame(scrollWhileDragging);
-  }
-
-  function finish(drop) {
-    const { handle, pointerId, row, before, marker, active } = drag;
-    drag = null;
-    cancelAnimationFrame(frame);
-    marker?.removeAttribute('data-drop');
-    row.classList.remove('drag-source');
-    if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-    if (drop && active && marker) moveItem(row.dataset.sortId, before);
-  }
-
-  list.addEventListener('pointerdown', event => {
-    const handle = event.target.closest('.drag-handle');
-    if (drag || !handle || handle.disabled || event.button !== 0 || !event.isPrimary) return;
-    handle.focus({ preventScroll: true });
-    handle.setPointerCapture(event.pointerId);
-    drag = {
-      handle, pointerId: event.pointerId, row: handle.closest('.template-row'),
-      startY: event.clientY, active: false, x: event.clientX, y: event.clientY,
-    };
-  });
-
-  list.addEventListener('pointermove', event => {
-    if (event.pointerId !== drag?.pointerId) return;
-    drag.x = event.clientX;
-    drag.y = event.clientY;
-    if (!drag.active) {
-      if (Math.abs(drag.y - drag.startY) < 5) return;
-      drag.active = true;
-      drag.row.classList.add('drag-source');
-      frame = requestAnimationFrame(scrollWhileDragging);
-    }
-    updateTarget();
-  });
-
-  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    list.addEventListener(type, event => {
-      if (event.pointerId !== drag?.pointerId) return;
-      if (type === 'pointerup' && drag.active) {
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-        updateTarget();
-      }
-      finish(type === 'pointerup');
-    });
-  }
-
-  list.addEventListener('keydown', event => {
-    if (event.key !== 'Escape' || !drag) return;
-    event.preventDefault();
-    finish(false);
-  });
-}
-
-function showEditor(kind) {
+function showQuestionEditor() {
   refreshData();
-  const isTemplate = kind === 'template';
-  const draft = clone(data[kind]);
+  const draft = clone(data.questions);
   const highWaterMarks = { ...data.lastId };
   const opened = new Set();
-  const idLabel = isTemplate ? '評量項目' : '題目';
-  const title = isTemplate ? '編輯評量表' : '編輯題庫';
 
   function renderEditor() {
     const body = $('#editor-list');
@@ -529,80 +441,45 @@ function showEditor(kind) {
       const categorySelect = `<label class="field"><span class="field-label">分類</span><select data-key="category">
         ${Object.entries(categories).map(([key, label]) => `<option value="${key}" ${key === entry.category ? 'selected' : ''}>${label}</option>`).join('')}
       </select></label>`;
-      const card = `<details class="editor-card" data-entry="${entry.id}" ${opened.has(entry.id) ? 'open' : ''}>
-        <summary><span class="code">${entry.id}</span><span data-entry-title>${escape(entry.title.trim() || `新${idLabel}`)}</span>${isTemplate ? '' : `<span class="column-meta" data-entry-category>${categories[entry.category]}</span>`}${icon('chevron')}</summary>
+      return `<details class="editor-card" data-entry="${entry.id}" ${opened.has(entry.id) ? 'open' : ''}>
+        <summary><span class="code">${entry.id}</span><span data-entry-title>${escape(entry.title.trim() || '新題目')}</span><span class="column-meta" data-entry-category>${categories[entry.category]}</span>${icon('chevron')}</summary>
         <div class="editor-fields">
-          ${isTemplate ? '' : categorySelect}
-          ${field(isTemplate ? '項目名稱' : '主題', 'data-key="title" required', entry.title)}
-          ${isTemplate
-            ? field('判斷依據', 'data-key="criteria" required', entry.criteria, { rows: 3 })
-            : ` ${field('主問題', 'data-key="prompt" required', entry.prompt, { rows: 2 })}
-                ${field('追問或延伸話題', 'data-key="followup"', entry.followup, { rows: 2 })}
-                ${field('觀察重點', 'data-key="observation"', entry.observation, { rows: 2 })}
-                ${field('對應評量項目', 'data-key="assessments" list="assessment-codes" pattern="[Ee][0-9]+([、,，\\s]+[Ee][0-9]+)*"', entry.assessments.join('、'), { placeholder: '例如：E04、E08' })}`}
+          ${categorySelect}
+          ${field('主題', 'data-key="title" required', entry.title)}
+          ${field('主問題', 'data-key="prompt" required', entry.prompt, { rows: 2 })}
+          ${field('追問或延伸話題', 'data-key="followup"', entry.followup, { rows: 2 })}
+          ${field('觀察重點', 'data-key="observation"', entry.observation, { rows: 2 })}
+          ${field('對應評量項目', 'data-key="assessments" list="assessment-codes" pattern="[Ee][0-9]+([、,，\\s]+[Ee][0-9]+)*"', entry.assessments.join('、'), { placeholder: '例如：E04、E05' })}
           <div class="editor-tools">
-            ${editorTool('上移', 'up', 'up', !draft.slice(0, index).some(other => isTemplate || other.category === entry.category))}
-            ${editorTool('下移', 'down', 'down', !draft.slice(index + 1).some(other => isTemplate || other.category === entry.category))}
-            ${editorTool(`刪除${idLabel}`, 'delete', 'trash')}
+            ${editorTool('上移', 'up', 'up', !draft.slice(0, index).some(other => other.category === entry.category))}
+            ${editorTool('下移', 'down', 'down', !draft.slice(index + 1).some(other => other.category === entry.category))}
+            ${editorTool('刪除題目', 'delete', 'trash')}
           </div>
         </div>
       </details>`;
-      if (!isTemplate) return card;
-      return `<div class="template-row" data-sort-id="${entry.id}">
-        <button type="button" class="icon-button drag-handle" aria-label="調整 ${entry.id} 的順序"
-          aria-describedby="editor-hint" aria-keyshortcuts="ArrowUp ArrowDown" title="拖曳排序" ${draft.length < 2 ? 'disabled' : ''}>${icon('grip')}</button>
-        ${card}
-      </div>`;
-    }).join('') || `<p class="empty">還沒有${idLabel}。</p>`;
+    }).join('') || '<p class="empty">還沒有題目。</p>';
     drawIcons(body);
   }
 
-  const hint = isTemplate ? '拖曳左側三條線排序，也可在把手上按 ↑ 或 ↓。儲存後套用於新建面試。' : '可以用評量編號連結題目與評量，例如 E04、E08。';
-  showDialog(title, `
-    <p class="editor-intro" id="editor-hint">${hint}</p>
-    ${isTemplate ? '' : `<datalist id="assessment-codes">${data.template.map(item => `<option value="${item.id}">${escape(item.title)}</option>`).join('')}</datalist>`}
+  showDialog('編輯題庫', `
+    <p class="editor-intro">可以用評量編號連結題目與評量，例如 E04、E05。</p>
+    <datalist id="assessment-codes">${seed.items.map(item => `<option value="${item.id}">${escape(item.title)}</option>`).join('')}</datalist>
     <div id="editor-list"></div>
-    ${isTemplate ? '<div id="reorder-status" class="sr-only" role="status"></div>' : ''}
-    ${button(`新增${idLabel}`, 'compact', 'id="add-entry"', 'plus')}
-  `, `${button('取消', '', 'id="cancel-editor"')}<button type="submit" class="button primary">儲存${isTemplate ? '範本' : '題庫'}</button>`, () => {
+    ${button('新增題目', 'compact', 'id="add-entry"', 'plus')}
+  `, `${button('取消', '', 'id="cancel-editor"')}<button type="submit" class="button primary">儲存題庫</button>`, () => {
     if (!persist(next => {
-      next[kind] = clone(draft);
+      next.questions = clone(draft);
       for (const key of Object.keys(highWaterMarks)) next.lastId[key] = Math.max(next.lastId[key] || 0, highWaterMarks[key] || 0);
     })) return;
     dialog.close();
     renderQuestions();
-    notify(isTemplate ? '已儲存範本，新建面試將使用新版' : '已儲存題庫');
+    notify('已儲存題庫');
   });
 
   $('#cancel-editor').addEventListener('click', () => dialog.close());
   renderEditor();
 
   const list = $('#editor-list');
-  if (isTemplate) {
-    function moveItem(id, beforeId) {
-      const from = draft.findIndex(item => item.id === id);
-      const before = beforeId === null ? draft.length : draft.findIndex(item => item.id === beforeId);
-      const to = before > from ? before - 1 : before;
-      if (from === to) return;
-      const [item] = draft.splice(from, 1);
-      draft.splice(to, 0, item);
-      renderEditor();
-      list.querySelector(`[data-sort-id="${id}"] .drag-handle`).focus();
-      $('#reorder-status').textContent = `${item.title || id} 已移到第 ${to + 1} 項。`;
-    }
-
-    enableTemplateDragging(list, moveItem);
-    list.addEventListener('keydown', event => {
-      const handle = event.target.closest('.drag-handle');
-      if (!handle || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      event.preventDefault();
-      const id = handle.closest('.template-row').dataset.sortId;
-      const index = draft.findIndex(item => item.id === id);
-      if (event.key === 'ArrowUp' && index > 0) moveItem(id, draft[index - 1].id);
-      if (event.key === 'ArrowDown' && index < draft.length - 1) moveItem(id, draft[index + 2]?.id ?? null);
-    });
-  }
-
   list.addEventListener('toggle', event => {
     if (!event.target.matches('.editor-card')) return;
     if (event.target.open) opened.add(event.target.dataset.entry);
@@ -616,7 +493,7 @@ function showEditor(kind) {
     const entry = draft.find(item => item.id === card.dataset.entry);
     const value = event.target.value;
     entry[key] = key === 'assessments' ? Array.from(new Set(value.toUpperCase().split(/[、,，\s]+/).filter(Boolean))) : value;
-    if (key === 'title') card.querySelector('[data-entry-title]').textContent = value.trim() || `新${idLabel}`;
+    if (key === 'title') card.querySelector('[data-entry-title]').textContent = value.trim() || '新題目';
     if (key === 'category') {
       opened.add(entry.id);
       renderEditor();
@@ -650,7 +527,7 @@ function showEditor(kind) {
     }
     const step = action === 'up' ? -1 : 1;
     let next = index + step;
-    while (draft[next] && !isTemplate && draft[next].category !== draft[index].category) next += step;
+    while (draft[next] && draft[next].category !== draft[index].category) next += step;
     if (!draft[next]) return;
     [draft[index], draft[next]] = [draft[next], draft[index]];
     opened.add(id);
@@ -661,22 +538,16 @@ function showEditor(kind) {
   });
 
   $('#add-entry').addEventListener('click', () => {
-    const prefix = isTemplate ? 'E' : activeCategory;
-    highWaterMarks[prefix] = (highWaterMarks[prefix] || 0) + 1;
-    const id = prefix + String(highWaterMarks[prefix]).padStart(2, '0');
-    const entry = isTemplate
-      ? { id, title: '', criteria: '' }
-      : { id, category: activeCategory, title: '', prompt: '', followup: '', observation: '', assessments: [] };
-    draft.push(entry);
+    highWaterMarks[activeCategory] = (highWaterMarks[activeCategory] || 0) + 1;
+    const id = activeCategory + String(highWaterMarks[activeCategory]).padStart(2, '0');
+    draft.push({ id, category: activeCategory, title: '', prompt: '', followup: '', observation: '', assessments: [] });
     opened.add(id);
     renderEditor();
     list.querySelector(`[data-entry="${id}"] [data-key="title"]`).focus();
   });
 }
 
-for (const control of document.querySelectorAll('[data-edit]')) {
-  control.addEventListener('click', () => showEditor(control.dataset.edit));
-}
+$('#edit-questions').addEventListener('click', showQuestionEditor);
 
 drawIcons(document);
 renderInterview();

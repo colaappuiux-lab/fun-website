@@ -122,14 +122,6 @@ dialog::backdrop { background: #21183966; }
 .icon-button:disabled { opacity: .42; cursor: default; }
 .icon-button.danger { color: #9e304a; }
 .editor-card { border: 1px solid var(--line); background: #fbfaff; border-radius: 9px; margin-bottom: .55rem; }
-.template-row { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .45rem; margin-block-end: .55rem; }
-.template-row .editor-card { margin: 0; }
-.drag-handle { width: 44px; height: 44px; color: #6651a9; cursor: grab; touch-action: none; user-select: none; }
-.drag-source { opacity: .55; }
-.drag-source .drag-handle { cursor: grabbing; }
-.template-row[data-drop]::after { content: ""; position: absolute; inset-inline: 0; height: 3px; border-radius: 3px; background: var(--purple); pointer-events: none; }
-.template-row[data-drop="before"]::after { top: -.36rem; }
-.template-row[data-drop="after"]::after { bottom: -.36rem; }
 .editor-card summary { list-style: none; font-weight: 750; display: flex; gap: .45rem; align-items: center; padding: .65rem; }
 .editor-card summary::-webkit-details-marker { display: none; }
 .editor-card[open] summary [data-icon] { transform: rotate(180deg); }
